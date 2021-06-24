@@ -1,3 +1,8 @@
+## Ref architecture
+![Active/Active DR app](https://github.com/sudhirpandey/dr-app/blob/main/archicture/activedr_eksbased.jpg)
+
+
+
 Log In into AWs (dev env)
 ```
 aws sso login profile=dev-account
@@ -18,3 +23,6 @@ Application deploy in both regions
  ```
 
  After doing this the web application will be reach able via domain name send as variable in  dev.tfvars.
+
+
+
