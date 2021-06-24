@@ -17,4 +17,4 @@ terrafrom deploy
  for region in eu-north-1 eu-west-1; do aws eks update-kubeconfig --region $region --name eks-cluster && kubectl apply -k app_k8s/overlays/$region; done
  ```
 
- After doing this the web application will be reach able via domain name send as variable in  dev.tfvars
+ After doing this the web application will be reach able via domain name send as variable in  dev.tfvars.
