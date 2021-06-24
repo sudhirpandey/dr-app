@@ -1,58 +1,86 @@
 locals {
-  name   = "global_mysql_db"
+  name   = "global-mysql-db"
+}
+
+provider "aws" {
+  alias  = "primary"
+  region = "eu-west-1" 
+}
+
+provider "aws" {
+  alias  = "secondary"
+  region = "eu-north-1"
+}
+
+resource "aws_db_subnet_group" "rds-private-subnet-euwest1" {
+  name = "rds-private-subnet-group"
+  subnet_ids = var.euwest1_subnet_cidrs
+}
+
+resource "random_password" "master" {
+  length = 10
+}
+
+resource "aws_db_subnet_group" "rds-private-subnet-eunorth1" {
+  name = "rds-private-subnet-group"
+  subnet_ids = var.eunorth1_subnet_cidrs
+}
+
+resource "aws_rds_global_cluster" "global_db_cluster" {
+  global_cluster_identifier = "global-db-test"
+  engine                    = "aurora"
+  engine_version            = "5.6.mysql_aurora.1.22.2"
+  database_name             = "app_db"
+}
+
+resource "aws_rds_cluster" "primary" {
+  provider                  = aws.primary
+  engine                    = aws_rds_global_cluster.global_db_cluster.engine
+  engine_version            = aws_rds_global_cluster.global_db_cluster.engine_version
+  cluster_identifier        = "primary-cluster"
+  master_username           = "master"
+  master_password           = random_password.master.result
+  database_name             = "app_db"
+  global_cluster_identifier = aws_rds_global_cluster.global_db_cluster.id
+  db_subnet_group_name      = aws_db_subnet_group.rds-private-subnet-euwest1.name
+}
+
+resource "aws_rds_cluster_instance" "primary" {
+  count                = 2
+  provider             = aws.primary
+  identifier           = format("%s-%s", "primary-cluster-instance", count.index)
+  cluster_identifier   = aws_rds_cluster.primary.id
+  instance_class       = "db.r5.large"
+  db_subnet_group_name = aws_db_subnet_group.rds-private-subnet-euwest1.name
+}
+
+resource "aws_rds_cluster" "secondary" {
+  provider                  = aws.secondary
+  engine                    = aws_rds_global_cluster.global_db_cluster.engine
+  engine_version            = aws_rds_global_cluster.global_db_cluster.engine_version
+  cluster_identifier        = "secondary-cluster"
+  global_cluster_identifier = aws_rds_global_cluster.global_db_cluster.id
+  db_subnet_group_name      = aws_db_subnet_group.rds-private-subnet-eunorth1.name
+}
+
+resource "aws_rds_cluster_instance" "secondary" {
+  count                = 1
+  provider             = aws.secondary
+  identifier           = format("%s-%s", "secondary-cluster-instance", count.index)
+  cluster_identifier   = aws_rds_cluster.secondary.id
+  instance_class       = "db.rr.large"
+  db_subnet_group_name = aws_db_subnet_group.rds-private-subnet-eunorth1.name
+
+  depends_on = [
+    aws_rds_cluster_instance.primary
+  ]
 }
 
 
-
-module "aurora" {
-  source  = "terraform-aws-modules/rds-aurora/aws"
-  version = "~> 3.0"
-
-  name                  = local.name
-  engine                = "aurora-mysql"
-  engine_version        = "5.7.12"
-  instance_type         = "db.r5.large"
-  instance_type_replica = "db.t3.medium"
-
-  vpc_id                = var.vpc_id
-  db_subnet_group_name  = var.subnet_ids
-  create_security_group = true
-  allowed_cidr_blocks   = var.subnet_cidrs
-
-  replica_count                       = 2
-  iam_database_authentication_enabled = true
-  create_random_password              = true
-  engine_mode = "global"
-
-  apply_immediately   = true
-  skip_final_snapshot = true
-
-  db_parameter_group_name         = aws_db_parameter_group.example.id
-  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.example.id
-  enabled_cloudwatch_logs_exports = ["audit", "error", "general", "slowquery"]
-}
-
-resource "aws_ssm_parameter" "this_master_user" {
-  name  = "/rds/master-user"
-  type  = "SecureString"
-  value = module.aurora.rds_cluster_master_username
-}
 
 resource "aws_ssm_parameter" "this_master_pass" {
   name  = "/rds/master-pass"
   type  = "SecureString"
-  value = module.aurora.rds_cluster_master_password
+  value = random_password.master.result
 }
 
-
-resource "aws_db_parameter_group" "example" {
-  name        = "${local.name}-aurora-db-57-parameter-group"
-  family      = "aurora-mysql5.7"
-  description = "${local.name}-aurora-db-57-parameter-group"
-}
-
-resource "aws_rds_cluster_parameter_group" "example" {
-  name        = "${local.name}-aurora-57-cluster-parameter-group"
-  family      = "aurora-mysql5.7"
-  description = "${local.name}-aurora-57-cluster-parameter-group"
-}

@@ -28,15 +28,12 @@ module "webapp-eu-north-1" {
   }
 }
 
-#module "webapp-eu-north-1" {
-#  source = "./global_db"
-#  vpc_id=module.webapp-eu-west-1.vpc_id
-#  db_subnet_group_name=module.webapp-eu-west-1.subnet_ids
-#  allowed_cidr_blocks=module.webapp-eu-west-1.subnet_cidrs
-#  providers = {
-#    aws = "aws"
-#  }
-#}
+module "multi-region-db" {
+  source = "./global_db"
+  vpc_id=module.webapp-eu-west-1.vpc_id
+  euwest1_subnet_cidrs=module.webapp-eu-west-1.vpc_private_subnet_cidrs
+  eunorth1_subnet_cidrs=module.webapp-eu-north-1.vpc_private_subnet_cidrs
+}
 
 
 

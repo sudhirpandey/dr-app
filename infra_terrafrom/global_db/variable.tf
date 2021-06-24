@@ -1,9 +1,9 @@
-variable "subnet_cidrs" {
-  description = "Subnet cidr blocks for service network configuration."
+variable "euwest1_subnet_cidrs" {
+  description = "Subnet cidr blocks for euwest 1 region."
 }
 
-variable "subnet_ids" {
-  description = "Subnets for service network configuration."
+variable "eunorth1_subnet_cidrs" {
+  description = "Subnet cidr blocks for north 1 region."
 }
 
 variable "vpc_id" {
